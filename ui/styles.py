@@ -439,7 +439,7 @@ button[data-testid^="stBaseButton-"]:active { transform:scale(.97) !important; }
 
 [data-testid="stChatInput"] {
   max-width:980px !important; width:calc(100% + 60px) !important;
-  margin-left:-30px !important; margin-right:auto !important;
+  margin-left:0 !important; margin-right:auto !important;
 }
 [data-testid="stChatInput"] > div:first-child,
 [data-testid="stChatInput"] > div:first-child:focus-within {
