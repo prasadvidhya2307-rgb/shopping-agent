@@ -15,6 +15,10 @@ from backend.reviews_api import get_product_rating
 
 
 def current_session_id() -> str:
+    """Authenticated users get a stable, isolated data scope."""
+    user = st.session_state.get("user")
+    if user:
+        return "user_" + str(user["id"])
     return st.session_state.get("session_id") or config.DEFAULT_SESSION_ID
 
 

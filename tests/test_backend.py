@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from backend import chat_store, config, database, image_search, order_service, reviews_api, utils
+from backend import auth, chat_store, config, database, image_search, order_service, reviews_api, utils
 from backend.tools import checkout, compare_products, get_rating, order_history, search_products
 
 
@@ -153,6 +153,25 @@ def test_order_history_is_session_isolated(legacy_db):
 # ---------------------------------------------------------------------------
 # Chat history
 # ---------------------------------------------------------------------------
+def test_auth_hashing_and_account_flow(legacy_db):
+    first = auth.hash_password("password123")
+    second = auth.hash_password("password123")
+    assert first != second  # unique salt
+    assert auth.verify_password("password123", first)
+    assert not auth.verify_password("wrong-password", first)
+
+    user = auth.create_user("alice", "alice@example.com", "password123")
+    assert auth.authenticate("alice", "password123")["id"] == user["id"]
+    assert auth.authenticate("ALICE@example.com", "password123")["id"] == user["id"]
+    assert auth.authenticate("alice", "wrong-password") is None
+    assert auth.get_user(user["id"])["username"] == "alice"
+
+    with pytest.raises(ValueError):
+        auth.create_user("alice", "other@example.com", "password123")
+    with pytest.raises(ValueError):
+        auth.create_user("bob", "bob@example.com", "short")
+
+
 def test_chat_history_persistence_and_isolation(legacy_db):
     cid = chat_store.create_conversation("alice")
     chat_store.append_message(cid, "user", "hello", "client-1")

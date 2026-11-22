@@ -225,6 +225,21 @@ input::placeholder,textarea::placeholder { color:var(--faint) !important; opacit
 }
 [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] p { color:#0B241B !important; }
 
+/* ---------- Authentication ---------- */
+.sm-auth-brand { display:flex; align-items:center; justify-content:center; gap:.8rem; margin:4vh 0 1.5rem; }
+.sm-auth-brand img { width:46px; height:46px; border-radius:13px; }
+.sm-auth-brand b { display:block; font-family:'Space Grotesk',sans-serif; font-size:1.5rem; color:var(--ink); letter-spacing:-.05em; }
+.sm-auth-brand span { color:var(--muted); font-size:.75rem; }
+.sm-auth-title { font-family:'Space Grotesk',sans-serif; font-size:1.7rem; font-weight:700; color:var(--ink); text-align:center; margin-top:1rem; }
+.sm-auth-sub { color:var(--muted); font-size:.85rem; text-align:center; margin:.3rem 0 1.5rem; }
+.sm-auth-note { color:var(--faint); font-size:.74rem; text-align:center; margin-top:1.2rem; line-height:1.5; }
+.sm-user {
+  width:34px; height:34px; border-radius:50%; display:grid; place-items:center; flex-shrink:0;
+  background:var(--accent); color:var(--btn-fg) !important; font-family:'Space Grotesk',sans-serif;
+  font-size:.72rem; font-weight:700; text-decoration:none !important; transition:box-shadow .2s ease;
+}
+.sm-user:hover { box-shadow:var(--glow); }
+
 /* ---------- Type ---------- */
 h1,h2,h3,h4 { color:var(--ink) !important; letter-spacing:-.04em; }
 .sm-kicker {

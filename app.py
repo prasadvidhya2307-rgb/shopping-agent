@@ -12,7 +12,7 @@ from urllib.parse import quote
 
 import streamlit as st
 
-from backend import chat_store, config, image_search
+from backend import auth, chat_store, config, image_search
 from backend.agent import safe_agent_content
 from ui.components import (
     LOGO_URI,
@@ -70,6 +70,7 @@ def init_state() -> None:
     defaults = {
         "messages": [],
         "session_id": uuid.uuid4().hex,
+        "user": None,
         "conversation_id": None,
         "theme": "dark",
         "auto_process": False,
@@ -89,6 +90,16 @@ def init_state() -> None:
 
 
 init_state()
+
+if st.query_params.get("logout") == "1":
+    for key in (
+        "user", "messages", "conversation_id", "pending_order",
+        "image_result", "auto_process", "handled_q",
+    ):
+        st.session_state[key] = None if key != "messages" else []
+    st.session_state.session_id = uuid.uuid4().hex
+    st.query_params.pop("logout", None)
+    st.rerun()
 
 if st.query_params.get("new_chat") == "1":
     st.session_state.messages = []
@@ -202,6 +213,65 @@ def section_head(kicker: str, title: str, sub: str = "") -> None:
 
 
 # ---------------------------------------------------------------------------
+# Authentication gate
+# ---------------------------------------------------------------------------
+def render_auth_page() -> None:
+    st.markdown(
+        f"""
+        <div class="sm-auth-brand">
+          <img src="{LOGO_URI}" alt="ShopMate">
+          <div><b>ShopMate</b><span>The smart marketplace</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    _, middle, _ = st.columns([1, 2.2, 1])
+    with middle:
+        st.markdown(
+            '<div class="sm-auth-title">Your account</div>'
+            '<div class="sm-auth-sub">Sign in to shop, compare and track your orders.</div>',
+            unsafe_allow_html=True,
+        )
+        login_tab, register_tab = st.tabs(["Log in", "Create account"])
+        with login_tab:
+            with st.form("login_form", border=False):
+                identifier = st.text_input("Username or email", key="login_id")
+                password = st.text_input("Password", type="password", key="login_pw")
+                do_login = st.form_submit_button("Log in", type="primary", use_container_width=True)
+            if do_login:
+                user = auth.authenticate(identifier, password)
+                if user:
+                    st.session_state.user = user
+                    st.session_state.session_id = "user_" + user["id"]
+                    st.rerun()
+                else:
+                    st.error("Invalid username/email or password.")
+        with register_tab:
+            with st.form("register_form", border=False):
+                new_name = st.text_input("Username", key="reg_user")
+                new_email = st.text_input("Email", key="reg_email")
+                new_password = st.text_input("Password", type="password", key="reg_pw")
+                confirm_password = st.text_input("Confirm password", type="password", key="reg_pw2")
+                do_register = st.form_submit_button("Create account", type="primary", use_container_width=True)
+            if do_register:
+                if new_password != confirm_password:
+                    st.error("Passwords do not match.")
+                else:
+                    try:
+                        user = auth.create_user(new_name, new_email, new_password)
+                        st.session_state.user = user
+                        st.session_state.session_id = "user_" + user["id"]
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(str(exc))
+        st.markdown(
+            '<div class="sm-auth-note">Passwords are stored as salted PBKDF2 hashes. '
+            'Your orders and chat history stay private to your account.</div>',
+            unsafe_allow_html=True,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Header + footer navigation (no sidebar)
 # ---------------------------------------------------------------------------
 def render_header() -> None:
@@ -214,6 +284,8 @@ def render_header() -> None:
     theme_label = "Light mode" if st.session_state.theme == "dark" else "Dark mode"
     next_theme = "light" if st.session_state.theme == "dark" else "dark"
     theme_href = f"?page={active}&theme={next_theme}"
+    username = (st.session_state.get("user") or {}).get("username", "?")
+    user_initials = html.escape(username[:2].upper())
     st.markdown(
         f"""
         <div class="sm-header">
@@ -225,6 +297,7 @@ def render_header() -> None:
           <div class="sm-header-actions">
             <a class="sm-action" href="?page=assistant&new_chat=1" target="_self">New chat</a>
             <a class="sm-action primary" href="{theme_href}" target="_self">{theme_label}</a>
+            <a class="sm-user" href="?logout=1" target="_self" title="Log out">{user_initials}</a>
           </div>
         </div>
         """,
@@ -663,6 +736,10 @@ def render_about() -> None:
 # ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
+if not st.session_state.get("user"):
+    render_auth_page()
+    st.stop()
+
 render_header()
 page = current_page()
 {

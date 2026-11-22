@@ -2,6 +2,13 @@
 
 An AI-powered shopping assistant built with Python, Streamlit, LangChain, Groq and SQLite.
 
+## Authentication
+
+The app opens on a sign-in screen. Create an account or log in with username or email.
+Passwords are stored as salted PBKDF2 hashes (`backend/auth.py`) — never in plain text.
+Orders and chat history are scoped to the signed-in user. Click the initials chip in the
+header to log out.
+
 ## Run
 
 ```powershell
@@ -24,6 +31,7 @@ shopping agent/
 │
 ├── backend/                 All application logic
 │   ├── config.py            Paths, models, limits, env handling
+│   ├── auth.py              Accounts, password hashing, login
 │   ├── utils.py             Validation, formatting, safe errors
 │   ├── llm.py               Lazy Groq client construction
 │   ├── database.py          SQLite connections, migrations, all SQL
