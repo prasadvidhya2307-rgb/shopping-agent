@@ -437,12 +437,15 @@ button[data-testid^="stBaseButton-"]:active { transform:scale(.97) !important; }
 .sm-typing { display:inline-flex; gap:4px; align-items:center; }
 .sm-typing i { width:6px; height:6px; border-radius:50%; background:var(--accent); animation:sm-float2 1s infinite; }
 
-[data-testid="stChatInput"] textarea {
+[data-testid="stChatInput"] { max-width:720px !important; margin-left:auto !important; margin-right:auto !important; }
+[data-testid="stChatInput"] textarea,
+[data-testid="stChatInput"] textarea:focus {
   border-radius:14px !important; border:1px solid var(--border) !important;
   background:var(--surface) !important; color:var(--ink) !important;
   box-shadow:var(--shadow) !important; padding:.85rem 1rem !important;
+  outline:none !important; -webkit-box-shadow:var(--shadow) !important;
 }
-[data-testid="stChatInput"] textarea:focus { border-color:var(--accent) !important; box-shadow:var(--glow) !important; }
+[data-testid="stChatInput"]:focus-within { box-shadow:none !important; outline:none !important; }
 
 /* ---------- Panels / orders / confirm ---------- */
 .sm-panel {
