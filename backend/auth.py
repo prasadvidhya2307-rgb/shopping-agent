@@ -10,6 +10,7 @@ import hmac
 import re
 import secrets
 import time
+from datetime import datetime, timedelta
 from typing import Any
 
 from .database import get_connection
@@ -112,6 +113,49 @@ def authenticate(identifier: str, password: str) -> dict[str, Any] | None:
     count, _ = _failed.get(identifier, (0, now))
     _failed[identifier] = (count + 1, now)
     return None
+
+
+SESSION_HOURS = 12
+
+
+def create_session(user_id: str) -> str:
+    """Create a persistent web session. The token goes in the URL, never the password."""
+    token = secrets.token_urlsafe(32)
+    expires = (datetime.now() + timedelta(hours=SESSION_HOURS)).isoformat()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO web_sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
+            (token, user_id, expires),
+        )
+    return token
+
+
+def get_session_user(token: str | None) -> dict[str, Any] | None:
+    """Resolve a URL session token back to an active user."""
+    if not token:
+        return None
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT u.id, u.username, u.email, u.role FROM web_sessions s "
+            "JOIN users u ON u.id = s.user_id "
+            "WHERE s.token = ? AND u.is_active = 1 AND s.expires_at > ?",
+            (token, datetime.now().isoformat()),
+        ).fetchone()
+    if not row:
+        return None
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "email": row["email"],
+        "role": row["role"] or "user",
+    }
+
+
+def delete_session(token: str | None) -> None:
+    if not token:
+        return
+    with get_connection() as conn:
+        conn.execute("DELETE FROM web_sessions WHERE token = ?", (token,))
 
 
 def get_user(user_id: str) -> dict[str, Any] | None:

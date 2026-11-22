@@ -40,7 +40,7 @@ Add a `.env` file in the project root with `GROQ_API_KEY=your_key` to enable the
 
 ```
 shopping agent/
-├── app.py                   Streamlit entry point (header/footer, six pages)
+├── app.py                   Streamlit entry point (header/footer, five pages + admin)
 ├── store.db                 Local SQLite database (not committed)
 ├── requirements.txt
 ├── .env                     Groq API key (not committed)

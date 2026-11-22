@@ -8,7 +8,7 @@ import html
 import os
 import uuid
 from datetime import datetime
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import streamlit as st
 
@@ -58,7 +58,6 @@ PAGES = [
     ("explore", "Explore"),
     ("image", "Image Search"),
     ("orders", "Orders"),
-    ("about", "About"),
 ]
 PAGE_KEYS = {key for key, _ in PAGES} | {"admin"}
 
@@ -72,6 +71,7 @@ def init_state() -> None:
         "session_id": uuid.uuid4().hex,
         "user": None,
         "admin": False,
+        "sid": None,
         "conversation_id": None,
         "theme": "dark",
         "auto_process": False,
@@ -92,7 +92,19 @@ def init_state() -> None:
 
 init_state()
 
+if not st.session_state.get("user"):
+    _token = st.query_params.get("sid")
+    _restored = auth.get_session_user(_token)
+    if _restored:
+        st.session_state.user = _restored
+        st.session_state.admin = _restored.get("role") == "admin"
+        st.session_state.sid = _token
+        st.session_state.session_id = "user_" + _restored["id"]
+
 if st.query_params.get("logout") == "1":
+    auth.delete_session(st.session_state.get("sid") or st.query_params.get("sid"))
+    st.session_state.sid = None
+    st.query_params.pop("sid", None)
     for key in (
         "user", "admin", "messages", "conversation_id", "pending_order",
         "image_result", "auto_process", "handled_q",
@@ -140,6 +152,17 @@ def get_agent():
                 RuntimeError("agent unavailable"), "AI engine initialisation"
             )
     return st.session_state.agent
+
+
+def _href(page: str, **extra) -> str:
+    """Build a same-tab link that preserves the login session across reloads."""
+    params: dict[str, str] = {"page": page}
+    if st.session_state.get("sid"):
+        params["sid"] = st.session_state.sid
+    if st.session_state.get("theme"):
+        params["theme"] = st.session_state.theme
+    params.update({k: str(v) for k, v in extra.items()})
+    return html.escape("?" + urlencode(params), quote=True)
 
 
 def current_page() -> str:
@@ -233,10 +256,14 @@ def render_auth_page() -> None:
             '<div class="sm-auth-sub">Sign in to shop, compare and track your orders.</div>',
             unsafe_allow_html=True,
         )
-        def _sign_in(user: dict) -> None:
+        def _sign_in(user: dict, destination: str = "home") -> None:
+            token = auth.create_session(user["id"])
             st.session_state.user = user
             st.session_state.admin = user.get("role") == "admin"
+            st.session_state.sid = token
             st.session_state.session_id = "user_" + user["id"]
+            st.query_params["sid"] = token
+            st.query_params["page"] = destination
             st.rerun()
 
         login_tab, register_tab, admin_tab = st.tabs(
@@ -283,8 +310,7 @@ def render_auth_page() -> None:
             if do_admin:
                 user = auth.authenticate(admin_id, admin_pw)
                 if user and user.get("role") == "admin":
-                    st.query_params["page"] = "admin"
-                    _sign_in(user)
+                    _sign_in(user, "admin")
                 elif user:
                     st.error("This account is not an administrator.")
                 else:
@@ -318,53 +344,38 @@ def _logout() -> None:
 def render_header() -> None:
     active = current_page()
     theme_label = "Light mode" if st.session_state.theme == "dark" else "Dark mode"
+    next_theme = "light" if st.session_state.theme == "dark" else "dark"
     username = (st.session_state.get("user") or {}).get("username", "?")
-    initials = username[:2].upper()
+    initials = html.escape(username[:2].upper())
+
+    nav = "".join(
+        f'<a class="sm-navlink{" active" if key == active else ""}" '
+        f'href="{_href(key)}" target="_self">{html.escape(label)}</a>'
+        for key, label in PAGES
+    )
+    if st.session_state.get("admin"):
+        nav += (
+            f'<a class="sm-navlink{" active" if active == "admin" else ""}" '
+            f'href="{_href("admin")}" target="_self">Admin</a>'
+        )
 
     st.markdown(
         f"""
         <div class="sm-header">
-          <div class="sm-header-brand">
+          <a class="sm-header-brand" href="{_href('home')}" target="_self">
             <img class="sm-logo-img" src="{LOGO_URI}" alt="ShopMate"><span>ShopMate</span>
-          </div>
+          </a>
           <div class="sm-search-slot"></div>
-          <div class="sm-controls-slot"></div>
+          <nav class="sm-navbar">{nav}</nav>
+          <div class="sm-header-actions">
+            <a class="sm-action" href="{_href('assistant', new_chat='1')}" target="_self">New chat</a>
+            <a class="sm-action primary" href="{_href(active, theme=next_theme)}" target="_self">{theme_label}</a>
+            <a class="sm-user" href="{_href(active, logout='1')}" target="_self" title="Log out">{initials}</a>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    # Streamlit buttons, not <a> links: a link reloads the page and wipes the
-    # login session, while a button performs an in-place rerun.
-    nav_items = list(PAGES)
-    if st.session_state.get("admin"):
-        nav_items.append(("admin", "Admin"))
-    widths = [1] * len(nav_items) + [1.05, 1.25, 0.55]
-    cols = st.columns(widths, gap="small")
-    for idx, (key, label) in enumerate(nav_items):
-        with cols[idx]:
-            if st.button(
-                label,
-                key=f"navbtn_{key}",
-                type="primary" if key == active else "secondary",
-                use_container_width=True,
-            ):
-                navigate(key)
-    offset = len(nav_items)
-    with cols[offset]:
-        if st.button("New chat", key="act_newchat", use_container_width=True):
-            _clear_conversation()
-            st.rerun()
-    with cols[offset + 1]:
-        if st.button(theme_label, key="act_theme", use_container_width=True):
-            st.session_state.theme = (
-                "light" if st.session_state.theme == "dark" else "dark"
-            )
-            st.rerun()
-    with cols[offset + 2]:
-        if st.button(initials, key="act_logout", use_container_width=True):
-            _logout()
-            st.rerun()
 
     # Search form — CSS positions this inline in the fixed header, after the logo.
     with st.form("header_search", border=False):
@@ -383,7 +394,8 @@ def render_header() -> None:
 
 def render_footer() -> None:
     links = "".join(
-        f'<a href="?page={key}" target="_self">{html.escape(label)}</a>' for key, label in PAGES
+        f'<a href="{_href(key)}" target="_self">{html.escape(label)}</a>'
+        for key, label in PAGES
     )
     st.markdown(
         f"""
@@ -435,7 +447,7 @@ def render_home() -> None:
     if suggestions:
         st.markdown('<div class="sm-suggest-label">FROM OUR CATALOGUE</div>', unsafe_allow_html=True)
         chips = "".join(
-            f'<a class="sm-chip" href="?page=assistant&q={quote(s)}" target="_self">{html.escape(s)}</a>'
+            f'<a class="sm-chip" href="{_href("assistant", q=s)}" target="_self">{html.escape(s)}</a>'
             for s in suggestions
         )
         st.markdown(chips, unsafe_allow_html=True)
@@ -743,59 +755,6 @@ def render_orders() -> None:
 
 
 # ---------------------------------------------------------------------------
-# About
-# ---------------------------------------------------------------------------
-def render_about() -> None:
-    st.markdown(
-        """
-        <div class="sm-hero" style="padding:2.6rem 3rem;min-height:auto">
-          <div class="sm-hero-title">Good things, found <em>intelligently.</em></div>
-          <p class="sm-hero-copy">ShopMate is a small marketplace for wholesome pantry
-             staples. Finding the right product should feel like a conversation, not a chore.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    section_head("HOW IT WORKS", "Three simple steps")
-    steps = [
-        ("01", "Describe or upload", "Tell us what you need, or drop in a photo of a product you like."),
-        ("02", "Compare rated picks", "We search real inventory, check reviews and shortlist the best matches."),
-        ("03", "Confirm & relax", "Pick a product, approve the order, and track it in My Orders."),
-    ]
-    cols = st.columns(3)
-    for col, (num, title, body) in zip(cols, steps):
-        with col:
-            st.markdown(
-                f'<div class="sm-feature"><div class="sm-step">{num}</div>'
-                f'<h4>{html.escape(title)}</h4><p>{html.escape(body)}</p></div>',
-                unsafe_allow_html=True,
-            )
-    st.markdown('<hr class="sm-rule">', unsafe_allow_html=True)
-    section_head("BUILT ON REAL DATA", "No invented products. Ever.")
-    values = [
-        ("Real inventory", "Every product, price and review comes from our SQLite store."),
-        ("Explainable AI", "LangChain tools search, rate and compare; Groq powers reasoning and vision."),
-        ("You stay in control", "An order is written only after you explicitly confirm it."),
-    ]
-    cols = st.columns(3)
-    for col, (title, body) in zip(cols, values):
-        with col:
-            st.markdown(
-                f'<div class="sm-feature"><h4>{html.escape(title)}</h4><p>{html.escape(body)}</p></div>',
-                unsafe_allow_html=True,
-            )
-    st.markdown('<hr class="sm-rule">', unsafe_allow_html=True)
-    section_head("POWERED BY", "The stack")
-    st.markdown(
-        '<div style="margin-top:.7rem">'
-        '<span class="sm-pill">LangChain</span><span class="sm-pill">Groq</span>'
-        '<span class="sm-pill">Streamlit</span><span class="sm-pill">SQLite</span>'
-        '<span class="sm-pill">Python</span></div>',
-        unsafe_allow_html=True,
-    )
-
-
-# ---------------------------------------------------------------------------
 # Admin panel
 # ---------------------------------------------------------------------------
 def render_admin_panel() -> None:
@@ -875,7 +834,6 @@ PAGES_BY_KEY = {
     "explore": render_explore,
     "image": render_image_search,
     "orders": render_orders,
-    "about": render_about,
     "admin": render_admin_panel,
 }
 PAGES_BY_KEY[page]()

@@ -172,6 +172,16 @@ def test_auth_hashing_and_account_flow(legacy_db):
         auth.create_user("bob", "bob@example.com", "short")
 
 
+def test_persistent_web_sessions(legacy_db):
+    user = auth.create_user("sessionuser", "session@example.com", "password123")
+    token = auth.create_session(user["id"])
+    assert auth.get_session_user(token)["id"] == user["id"]
+    assert auth.get_session_user(None) is None
+    assert auth.get_session_user("not-a-real-token") is None
+    auth.delete_session(token)
+    assert auth.get_session_user(token) is None
+
+
 def test_admin_roles_and_user_management(legacy_db):
     user = auth.create_user("bob", "bob@example.com", "password123")
     assert user["role"] == "user"

@@ -87,17 +87,7 @@ header { visibility:hidden !important; }
 .sm-header-brand { font-size:1.05rem !important; gap:.45rem !important; }
 .sm-header-brand .sm-logo-img { width:32px !important; height:32px !important; border-radius:9px !important; }
 .sm-search-slot { width:clamp(190px,20vw,270px); flex-shrink:0; height:38px; }
-.sm-controls-slot { flex:1; min-width:0; }
-[data-testid="stHorizontalBlock"]:has(div.st-key-navbtn_home) {
-  position:fixed; z-index:91; top:12px;
-  left:calc(max(1.5rem, (100vw - 1360px) / 2 + 2rem) + 126px + clamp(190px,20vw,270px) + 10px);
-  right:max(1.5rem, (100vw - 1360px) / 2 + 2rem);
-  width:auto; margin:0 !important; gap:0 !important;
-}
-[data-testid="stHorizontalBlock"]:has(div.st-key-navbtn_home) > div { min-width:0; }
-[data-testid="stHorizontalBlock"]:has(div.st-key-navbtn_home) button {
-  font-size:.72rem !important; padding:.3rem .35rem !important; min-height:34px !important;
-}
+
 [data-testid="stForm"]:has(input[placeholder="organic honey under 15 dollars"]) {
   position:fixed; z-index:90; top:13px;
   left:calc(max(1.5rem, (100vw - 1360px) / 2 + 2rem) + 126px);
@@ -127,13 +117,13 @@ header { visibility:hidden !important; }
 }
 .sm-logo-img.small { width:34px; height:34px; border-radius:10px; }
 .sm-navbar {
-  display:flex; align-items:center; gap:.1rem; min-width:0; flex-wrap:nowrap;
+  display:flex; align-items:center; gap:.2rem; min-width:0; flex-wrap:nowrap;
   justify-content:center; overflow-x:auto; scrollbar-width:none;
 }
 .sm-navbar::-webkit-scrollbar { display:none; }
 .sm-navlink {
-  padding:.42rem .5rem; border-radius:9px; text-decoration:none !important;
-  color:var(--muted) !important; font-size:.74rem; font-weight:600;
+  padding:.45rem .6rem; border-radius:9px; text-decoration:none !important;
+  color:var(--muted) !important; font-size:.8rem; font-weight:600;
   transition:all .2s ease; white-space:nowrap;
 }
 .sm-navlink:hover { color:var(--ink) !important; background:var(--surface-2); }
@@ -526,10 +516,6 @@ hr { border-color:var(--border) !important; }
   .block-container { padding:130px 1.1rem 4rem 1.1rem; }
   .sm-header { padding:.7rem 1.1rem; height:auto; flex-wrap:wrap; gap:.6rem; }
   .sm-search-slot { display:none; }
-  [data-testid="stHorizontalBlock"]:has(div.st-key-navbtn_home) {
-    position:static; width:auto; margin:.8rem 0 1.2rem !important;
-    overflow-x:auto; padding-bottom:.3rem;
-  }
   [data-testid="stForm"]:has(input[placeholder="organic honey under 15 dollars"]) {
     position:static; width:auto; margin:.8rem 0 1.2rem !important;
     background:var(--surface) !important; border:1px solid var(--border) !important;
