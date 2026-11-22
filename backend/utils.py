@@ -5,7 +5,7 @@ import logging
 import re
 from typing import Any, Iterable
 
-from config import redact
+from .config import redact
 
 logger = logging.getLogger("shopmate")
 

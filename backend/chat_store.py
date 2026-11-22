@@ -3,7 +3,7 @@
 import uuid
 from typing import Any
 
-from database import get_connection
+from .database import get_connection
 
 
 def new_conversation_id() -> str:

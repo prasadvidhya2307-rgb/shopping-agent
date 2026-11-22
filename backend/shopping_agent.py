@@ -5,8 +5,8 @@ The implementation now lives in focused modules (``agent.py``, ``tools.py``,
 the Streamlit UI keep working unchanged.
 """
 
-from agent import SYSTEM_PROMPT, agent
-from tools import (
+from .agent import SYSTEM_PROMPT, agent
+from .tools import (
     checkout,
     compare_products,
     describe_product_image,

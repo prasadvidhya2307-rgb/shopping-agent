@@ -9,8 +9,8 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Any, Iterator
 
-import config
-from utils import dedupe_products, valid_price
+from . import config
+from .utils import dedupe_products, valid_price
 
 _initialized = False
 
@@ -152,7 +152,7 @@ def initialize_database() -> None:
             "                WHERE r.product_id = products.id) "
             "WHERE rating IS NULL OR review_count IS NULL"
         )
-        for filename, needle in (("resources/honey.png", "%honey%"), ("resources/oats.png", "%oat%")):
+        for filename, needle in (("assets/honey.png", "%honey%"), ("assets/oats.png", "%oat%")):
             conn.execute(
                 "UPDATE products SET image_path = ? "
                 "WHERE image_path IS NULL AND LOWER(name) LIKE ?",

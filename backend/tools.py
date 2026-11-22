@@ -8,12 +8,8 @@ mixed into the agent definition.
 import base64
 from typing import Any, Optional
 
-import config
-import database
-import image_search
-import order_service
-import reviews_api
-from utils import as_json, safe_error, valid_positive_int, valid_product_id
+from . import config, database, image_search, order_service, reviews_api
+from .utils import as_json, safe_error, valid_positive_int, valid_product_id
 
 try:  # Real LangChain tool decorator when available
     from langchain.tools import tool

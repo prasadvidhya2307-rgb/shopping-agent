@@ -10,14 +10,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = BASE_DIR / ".env"
 
 load_dotenv(ENV_FILE)
 
 # Database ------------------------------------------------------------------
 DB_PATH = BASE_DIR / "store.db"
-RESOURCES_DIR = BASE_DIR / "resources"
+RESOURCES_DIR = BASE_DIR / "assets"
 
 # Groq models ----------------------------------------------------------------
 # Override with GROQ_MODEL / GROQ_VISION_MODEL if your Groq account has access

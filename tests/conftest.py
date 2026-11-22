@@ -8,8 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import config  # noqa: E402
-import database  # noqa: E402
+from backend import config, database  # noqa: E402
 
 
 LEGACY_SCHEMA = """

@@ -9,16 +9,16 @@ from urllib.parse import quote
 
 import streamlit as st
 
-import config
-from db_utils import get_product, place_order as fallback_place_order
-from reviews_api import get_product_rating
+from backend import config
+from backend.db_utils import get_product, place_order as fallback_place_order
+from backend.reviews_api import get_product_rating
 
 
 def current_session_id() -> str:
     return st.session_state.get("session_id") or config.DEFAULT_SESSION_ID
 
 
-_RES = os.path.join(os.path.dirname(__file__), "resources")
+_RES = str(config.RESOURCES_DIR)
 
 
 def _svg_uri(markup: str) -> str:
@@ -220,7 +220,7 @@ def execute_checkout(product_id: int, idempotency_key: str | None = None) -> str
         "idempotency_key": idempotency_key,
     }
     try:
-        from shopping_agent import checkout
+        from backend.shopping_agent import checkout
 
         return str(checkout.invoke(payload))
     except Exception:

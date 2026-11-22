@@ -11,9 +11,9 @@ import os
 import re
 from typing import Any
 
-import config
-from database import fetch_products, get_categories
-from utils import BackendError, as_json, clean_text, tokenize, valid_positive_int
+from . import config
+from .database import fetch_products, get_categories
+from .utils import BackendError, as_json, clean_text, tokenize, valid_positive_int
 
 
 def validate_image(data: bytes, filename: str = "") -> None:
@@ -75,7 +75,7 @@ def _parse_attributes(raw: str) -> dict:
 
 def identify_image(image_bytes: bytes) -> dict:
     """Call the Groq vision model and return structured product attributes."""
-    from llm import get_vision_llm
+    from .llm import get_vision_llm
     from langchain_core.messages import HumanMessage
 
     encoded = base64.b64encode(image_bytes).decode()
@@ -184,7 +184,7 @@ def analyze_image_file(path: str, limit: int = 5) -> dict:
                 "Set GROQ_VISION_MODEL to an accessible vision model, or describe the product in words."
             )
             return {"identified": {}, "matches": [], "summary": message, "error": "vision_unavailable"}
-        from utils import safe_error
+        from .utils import safe_error
 
         return {"identified": {}, "matches": [], "summary": safe_error(exc, "image analysis"), "error": "analysis_failed"}
     finally:
@@ -217,7 +217,7 @@ def analyze_image_bytes(data: bytes, filename: str, limit: int = 5) -> dict:
                 "Set GROQ_VISION_MODEL to an accessible vision model, or describe the product in words."
             )
             return {"identified": {}, "matches": [], "summary": message, "error": "vision_unavailable"}
-        from utils import safe_error
+        from .utils import safe_error
 
         return {"identified": {}, "matches": [], "summary": safe_error(exc, "image analysis"), "error": "analysis_failed"}
 

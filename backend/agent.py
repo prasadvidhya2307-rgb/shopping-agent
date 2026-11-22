@@ -5,8 +5,8 @@ real agent on first use, so the rest of the backend stays importable in
 environments without the optional AI dependencies.
 """
 
-from llm import get_reasoning_llm
-from tools import (
+from .llm import get_reasoning_llm
+from .tools import (
     compare_products,
     describe_product_image,
     get_rating,
@@ -14,7 +14,7 @@ from tools import (
     search_products,
     checkout,
 )
-from utils import BackendError
+from .utils import BackendError
 
 SYSTEM_PROMPT = """You are ShopMate, a helpful AI shopping assistant for a real store.
 

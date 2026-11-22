@@ -6,14 +6,8 @@ import sqlite3
 
 import pytest
 
-import chat_store
-import config
-import database
-import image_search
-import order_service
-import reviews_api
-import utils
-from tools import checkout, compare_products, get_rating, order_history, search_products
+from backend import chat_store, config, database, image_search, order_service, reviews_api, utils
+from backend.tools import checkout, compare_products, get_rating, order_history, search_products
 
 
 def _rows(path, sql):
@@ -233,7 +227,7 @@ def test_safe_error_never_leaks_api_key(monkeypatch):
 
 
 def test_backend_modules_import_without_langchain():
-    import shopping_agent
+    from backend import shopping_agent
 
     for name in ("agent", "search_products", "get_rating", "checkout", "describe_product_image"):
         assert hasattr(shopping_agent, name)
@@ -242,7 +236,7 @@ def test_backend_modules_import_without_langchain():
 def test_order_claims_require_a_checkout_tool_result():
     from types import SimpleNamespace
 
-    from agent import safe_agent_content
+    from backend.agent import safe_agent_content
 
     fabricated = "Your order is confirmed! Order #1001 — thank you."
     assert "no order was created" in safe_agent_content({"messages": []}, fabricated)
@@ -258,7 +252,7 @@ def test_order_claims_require_a_checkout_tool_result():
 
 
 def test_agent_raises_safe_error_without_llm(monkeypatch):
-    import agent as agent_module
+    from backend import agent as agent_module
 
     def no_llm():
         raise utils.BackendError("Groq API key is not configured.")

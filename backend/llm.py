@@ -7,8 +7,8 @@ packages or an API key are unavailable.
 
 from functools import lru_cache
 
-from config import REASONING_MODEL, VISION_MODEL, has_groq_credentials
-from utils import BackendError
+from .config import REASONING_MODEL, VISION_MODEL, has_groq_credentials
+from .utils import BackendError
 
 
 @lru_cache(maxsize=1)

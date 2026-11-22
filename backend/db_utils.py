@@ -6,10 +6,8 @@ or checkout logic.
 
 from typing import Any
 
-import config
-import database
-import order_service
-from reviews_api import get_ratings_for_products
+from . import config, database, order_service
+from .reviews_api import get_ratings_for_products
 
 SORT_MAP = {
     "Top rated": "rating",

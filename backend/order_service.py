@@ -8,9 +8,8 @@ import secrets
 import time
 from typing import Any
 
-import config
-import database
-from utils import BackendError, safe_error, valid_product_id, valid_positive_int
+from . import config, database
+from .utils import BackendError, safe_error, valid_product_id, valid_positive_int
 
 _confirmations: dict[str, dict[str, Any]] = {}
 

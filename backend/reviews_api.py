@@ -3,8 +3,8 @@
 Public functions keep their original names and return shapes.
 """
 
-from database import get_connection
-from utils import valid_product_id
+from .database import get_connection
+from .utils import valid_product_id
 
 
 def get_product_rating(product_id: int) -> dict:

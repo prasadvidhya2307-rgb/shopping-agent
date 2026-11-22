@@ -12,11 +12,9 @@ from urllib.parse import quote
 
 import streamlit as st
 
-import chat_store
-import config
-import image_search
-from agent import safe_agent_content
-from components import (
+from backend import chat_store, config, image_search
+from backend.agent import safe_agent_content
+from ui.components import (
     LOGO_URI,
     category_art,
     current_session_id,
@@ -25,7 +23,7 @@ from components import (
     render_message,
     render_product_card,
 )
-from db_utils import (
+from backend.db_utils import (
     catalog_overview,
     enrich_with_ratings,
     get_all_products,
@@ -36,12 +34,12 @@ from db_utils import (
     search_products_db,
     search_suggestions,
 )
-from styles import inject_css
-from utils import safe_error
+from ui.styles import inject_css
+from backend.utils import safe_error
 
 st.set_page_config(
     page_title="ShopMate AI — The Smart Marketplace",
-    page_icon="resources/logo.png",
+    page_icon="assets/logo.png",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -121,7 +119,7 @@ def get_agent():
     if not st.session_state.agent_checked:
         st.session_state.agent_checked = True
         try:
-            from shopping_agent import agent as real_agent
+            from backend.shopping_agent import agent as real_agent
 
             st.session_state.agent = real_agent
         except Exception:
@@ -188,7 +186,7 @@ def run_agent() -> None:
 def _b64(filename: str) -> str | None:
     import base64
 
-    path = os.path.join(os.path.dirname(__file__), "resources", filename)
+    path = os.path.join(config.RESOURCES_DIR, filename)
     if not os.path.exists(path):
         return None
     with open(path, "rb") as fh:
@@ -436,7 +434,7 @@ def render_explore() -> None:
         options = {f"{p['id']} — {p['name']}": p["id"] for p in results[:20]}
         chosen = st.multiselect("Products to compare", list(options), max_selections=3, key="compare_pick")
         if st.button("Compare selected", key="compare_btn", disabled=len(chosen) < 2):
-            from tools import compare_products
+            from backend.tools import compare_products
 
             ids = [options[c] for c in chosen]
             verdict = compare_products.invoke({"product_ids": ids})

@@ -8,8 +8,7 @@ want to rebuild the seed data.
 import argparse
 import sqlite3
 
-import config
-import database
+from . import config, database
 
 DB_PATH = str(config.DB_PATH)
 
