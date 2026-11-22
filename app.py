@@ -299,41 +299,72 @@ def render_auth_page() -> None:
 # ---------------------------------------------------------------------------
 # Header + footer navigation (no sidebar)
 # ---------------------------------------------------------------------------
+def _clear_conversation() -> None:
+    st.session_state.messages = []
+    st.session_state.conversation_id = None
+    st.session_state.pending_order = None
+    st.session_state.image_result = None
+    st.session_state.auto_process = False
+    st.session_state.handled_q = None
+
+
+def _logout() -> None:
+    _clear_conversation()
+    st.session_state.user = None
+    st.session_state.admin = False
+    st.session_state.session_id = uuid.uuid4().hex
+
+
 def render_header() -> None:
     active = current_page()
-    links = "".join(
-        f'<a class="sm-navlink{" active" if key == active else ""}" '
-        f'href="?page={key}" target="_self">{html.escape(label)}</a>'
-        for key, label in PAGES
-    )
     theme_label = "Light mode" if st.session_state.theme == "dark" else "Dark mode"
-    next_theme = "light" if st.session_state.theme == "dark" else "dark"
-    theme_href = html.escape(f"?page={active}&theme={next_theme}", quote=True)
     username = (st.session_state.get("user") or {}).get("username", "?")
-    user_initials = html.escape(username[:2].upper())
-    admin_link = (
-        '<a class="sm-action" href="?page=admin" target="_self">Admin</a>'
-        if st.session_state.get("admin")
-        else ""
-    )
+    initials = username[:2].upper()
+
     st.markdown(
         f"""
         <div class="sm-header">
-          <a class="sm-header-brand" href="?page=home" target="_self">
+          <div class="sm-header-brand">
             <img class="sm-logo-img" src="{LOGO_URI}" alt="ShopMate"><span>ShopMate</span>
-          </a>
-          <div class="sm-search-slot"></div>
-          <nav class="sm-navbar">{links}</nav>
-          <div class="sm-header-actions">
-            {admin_link}
-            <a class="sm-action" href="?page=assistant&amp;new_chat=1" target="_self">New chat</a>
-            <a class="sm-action primary" href="{theme_href}" target="_self">{theme_label}</a>
-            <a class="sm-user" href="?logout=1" target="_self" title="Log out">{user_initials}</a>
           </div>
+          <div class="sm-search-slot"></div>
+          <div class="sm-controls-slot"></div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    # Streamlit buttons, not <a> links: a link reloads the page and wipes the
+    # login session, while a button performs an in-place rerun.
+    nav_items = list(PAGES)
+    if st.session_state.get("admin"):
+        nav_items.append(("admin", "Admin"))
+    widths = [1] * len(nav_items) + [1.05, 1.25, 0.55]
+    cols = st.columns(widths, gap="small")
+    for idx, (key, label) in enumerate(nav_items):
+        with cols[idx]:
+            if st.button(
+                label,
+                key=f"navbtn_{key}",
+                type="primary" if key == active else "secondary",
+                use_container_width=True,
+            ):
+                navigate(key)
+    offset = len(nav_items)
+    with cols[offset]:
+        if st.button("New chat", key="act_newchat", use_container_width=True):
+            _clear_conversation()
+            st.rerun()
+    with cols[offset + 1]:
+        if st.button(theme_label, key="act_theme", use_container_width=True):
+            st.session_state.theme = (
+                "light" if st.session_state.theme == "dark" else "dark"
+            )
+            st.rerun()
+    with cols[offset + 2]:
+        if st.button(initials, key="act_logout", use_container_width=True):
+            _logout()
+            st.rerun()
 
     # Search form — CSS positions this inline in the fixed header, after the logo.
     with st.form("header_search", border=False):
