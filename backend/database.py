@@ -103,7 +103,8 @@ def initialize_database() -> None:
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                is_active INTEGER NOT NULL DEFAULT 1
+                is_active INTEGER NOT NULL DEFAULT 1,
+                role TEXT NOT NULL DEFAULT 'user'
             );
 
             CREATE TABLE IF NOT EXISTS order_items (
@@ -148,7 +149,11 @@ def initialize_database() -> None:
             """
         )
 
+        # Account roles (after CREATE TABLE so fresh installs work too).
+        _ensure_columns(conn, "users", {"role": "TEXT NOT NULL DEFAULT 'user'"})
+
         # Backfill only missing values; never overwrite existing data.
+        conn.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR TRIM(role) = ''")
         conn.execute(
             "UPDATE products SET availability = 'in_stock' "
             "WHERE availability IS NULL OR TRIM(availability) = ''"
@@ -398,6 +403,37 @@ def search_suggestions(prefix: str = "", limit: int = 6) -> list[str]:
 # ---------------------------------------------------------------------------
 # Orders
 # ---------------------------------------------------------------------------
+def fetch_all_orders() -> list[dict]:
+    """Admin-only: every order with the owning account attached."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT o.id, o.product_id, o.product_name, o.price, o.quantity, "
+            "       o.total_amount, o.ordered_at, o.status, o.session_id, "
+            "       u.username, u.email, p.category, p.image_path "
+            "FROM orders o "
+            "LEFT JOIN users u ON o.session_id = 'user_' || u.id "
+            "LEFT JOIN products p ON p.id = o.product_id "
+            "ORDER BY o.id DESC"
+        ).fetchall()
+    return [
+        {
+            "id": r["id"],
+            "product_id": r["product_id"],
+            "name": r["product_name"],
+            "price": float(r["price"]),
+            "quantity": int(r["quantity"] or 1),
+            "total_amount": float(r["total_amount"] or r["price"]),
+            "ordered_at": r["ordered_at"],
+            "status": r["status"] or "confirmed",
+            "owner": r["username"] or "legacy / unknown",
+            "email": r["email"] or "",
+            "category": r["category"] or "",
+            "image_path": r["image_path"] or "",
+        }
+        for r in rows
+    ]
+
+
 def find_order_by_idempotency_key(key: str) -> dict | None:
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM orders WHERE idempotency_key = ?", (key,)).fetchone()

@@ -12,7 +12,7 @@ from urllib.parse import quote
 
 import streamlit as st
 
-from backend import auth, chat_store, config, image_search
+from backend import auth, chat_store, config, database, image_search
 from backend.agent import safe_agent_content
 from ui.components import (
     LOGO_URI,
@@ -60,7 +60,7 @@ PAGES = [
     ("orders", "Orders"),
     ("about", "About"),
 ]
-PAGE_KEYS = {key for key, _ in PAGES}
+PAGE_KEYS = {key for key, _ in PAGES} | {"admin"}
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +71,7 @@ def init_state() -> None:
         "messages": [],
         "session_id": uuid.uuid4().hex,
         "user": None,
+        "admin": False,
         "conversation_id": None,
         "theme": "dark",
         "auto_process": False,
@@ -93,7 +94,7 @@ init_state()
 
 if st.query_params.get("logout") == "1":
     for key in (
-        "user", "messages", "conversation_id", "pending_order",
+        "user", "admin", "messages", "conversation_id", "pending_order",
         "image_result", "auto_process", "handled_q",
     ):
         st.session_state[key] = None if key != "messages" else []
@@ -232,7 +233,15 @@ def render_auth_page() -> None:
             '<div class="sm-auth-sub">Sign in to shop, compare and track your orders.</div>',
             unsafe_allow_html=True,
         )
-        login_tab, register_tab = st.tabs(["Log in", "Create account"])
+        def _sign_in(user: dict) -> None:
+            st.session_state.user = user
+            st.session_state.admin = user.get("role") == "admin"
+            st.session_state.session_id = "user_" + user["id"]
+            st.rerun()
+
+        login_tab, register_tab, admin_tab = st.tabs(
+            ["Log in", "Create account", "Admin"]
+        )
         with login_tab:
             with st.form("login_form", border=False):
                 identifier = st.text_input("Username or email", key="login_id")
@@ -241,9 +250,7 @@ def render_auth_page() -> None:
             if do_login:
                 user = auth.authenticate(identifier, password)
                 if user:
-                    st.session_state.user = user
-                    st.session_state.session_id = "user_" + user["id"]
-                    st.rerun()
+                    _sign_in(user)
                 else:
                     st.error("Invalid username/email or password.")
         with register_tab:
@@ -258,12 +265,30 @@ def render_auth_page() -> None:
                     st.error("Passwords do not match.")
                 else:
                     try:
-                        user = auth.create_user(new_name, new_email, new_password)
-                        st.session_state.user = user
-                        st.session_state.session_id = "user_" + user["id"]
-                        st.rerun()
+                        _sign_in(auth.create_user(new_name, new_email, new_password))
                     except ValueError as exc:
                         st.error(str(exc))
+        with admin_tab:
+            st.markdown(
+                '<div class="sm-auth-sub">Administrator access. Create the admin account with '
+                '<code>python -m backend.create_admin</code> first.</div>',
+                unsafe_allow_html=True,
+            )
+            with st.form("admin_login_form", border=False):
+                admin_id = st.text_input("Admin username or email", key="admin_id")
+                admin_pw = st.text_input("Admin password", type="password", key="admin_pw")
+                do_admin = st.form_submit_button(
+                    "Enter admin panel", type="primary", use_container_width=True
+                )
+            if do_admin:
+                user = auth.authenticate(admin_id, admin_pw)
+                if user and user.get("role") == "admin":
+                    st.query_params["page"] = "admin"
+                    _sign_in(user)
+                elif user:
+                    st.error("This account is not an administrator.")
+                else:
+                    st.error("Invalid admin credentials.")
         st.markdown(
             '<div class="sm-auth-note">Passwords are stored as salted PBKDF2 hashes. '
             'Your orders and chat history stay private to your account.</div>',
@@ -286,6 +311,11 @@ def render_header() -> None:
     theme_href = f"?page={active}&theme={next_theme}"
     username = (st.session_state.get("user") or {}).get("username", "?")
     user_initials = html.escape(username[:2].upper())
+    admin_link = (
+        '<a class="sm-action" href="?page=admin" target="_self">Admin</a>'
+        if st.session_state.get("admin")
+        else ""
+    )
     st.markdown(
         f"""
         <div class="sm-header">
@@ -295,6 +325,7 @@ def render_header() -> None:
           <div class="sm-search-slot"></div>
           <nav class="sm-navbar">{links}</nav>
           <div class="sm-header-actions">
+            {admin_link}
             <a class="sm-action" href="?page=assistant&new_chat=1" target="_self">New chat</a>
             <a class="sm-action primary" href="{theme_href}" target="_self">{theme_label}</a>
             <a class="sm-user" href="?logout=1" target="_self" title="Log out">{user_initials}</a>
@@ -734,6 +765,71 @@ def render_about() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Admin panel
+# ---------------------------------------------------------------------------
+def render_admin_panel() -> None:
+    current = auth.get_user(st.session_state.user["id"])
+    if not current or current.get("role") != "admin":
+        st.error("Administrator access required.")
+        return
+
+    section_head("ADMINISTRATION", "Control panel", "Accounts, orders and store metrics.")
+
+    users = auth.list_users()
+    orders = database.fetch_all_orders()
+    revenue = sum(o["total_amount"] for o in orders)
+    st.markdown(
+        '<div class="sm-stats">'
+        f'<div class="sm-stat"><div class="sm-stat-num">{len(users)}</div><div class="sm-stat-label">Accounts</div></div>'
+        f'<div class="sm-stat"><div class="sm-stat-num">{len(orders)}</div><div class="sm-stat-label">Orders</div></div>'
+        f'<div class="sm-stat"><div class="sm-stat-num">${revenue:.2f}</div><div class="sm-stat-label">Revenue</div></div>'
+        f'<div class="sm-stat"><div class="sm-stat-num">{len(get_all_products())}</div><div class="sm-stat-label">Products</div></div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    section_head("ACCOUNTS", "Users", "Enable or disable an account. Admins cannot disable the last admin.")
+    for account in users:
+        active = bool(account["is_active"])
+        st.markdown(
+            f"""
+            <div class="sm-order">
+              <div class="sm-order-icon">{'A' if account['role'] == 'admin' else html.escape(account['username'][:1].upper())}</div>
+              <div class="sm-order-main">
+                <b>{html.escape(account['username'])} &nbsp; <span style="opacity:.7">({html.escape(account['role'])})</span></b>
+                <span>{html.escape(account['email'])} · {account['orders']} orders · ${float(account['spent']):.2f} spent · {'Active' if active else 'Disabled'}</span>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        label = "Disable" if active else "Enable"
+        if st.button(label, key=f"admin_toggle_{account['id']}"):
+            auth.set_user_active(account["id"], not active)
+            st.rerun()
+
+    st.markdown('<hr class="sm-rule">', unsafe_allow_html=True)
+    section_head("ALL ORDERS", "Order history", "Every confirmed order across all accounts.")
+    if not orders:
+        st.info("No orders have been placed yet.")
+    for order in orders:
+        st.markdown(
+            f"""
+            <div class="sm-order">
+              <div class="sm-order-icon">{(order['category'][:1] or 'P').upper()}</div>
+              <div class="sm-order-main">
+                <b>Order #{order['id']:03d} &nbsp; {html.escape(order['name'])}</b>
+                <span>{html.escape(order['owner'])} · Qty {order['quantity']} · {_format_date(order['ordered_at'])}</span>
+              </div>
+              <div class="sm-status">{html.escape(order['status'].upper())}</div>
+              <div class="sm-order-price">${order['total_amount']:.2f}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
 if not st.session_state.get("user"):
@@ -742,11 +838,13 @@ if not st.session_state.get("user"):
 
 render_header()
 page = current_page()
-{
+PAGES_BY_KEY = {
     "home": render_home,
     "assistant": render_assistant,
     "explore": render_explore,
     "image": render_image_search,
     "orders": render_orders,
     "about": render_about,
-}[page]()
+    "admin": render_admin_panel,
+}
+PAGES_BY_KEY[page]()

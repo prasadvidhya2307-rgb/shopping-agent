@@ -9,6 +9,24 @@ Passwords are stored as salted PBKDF2 hashes (`backend/auth.py`) — never in pl
 Orders and chat history are scoped to the signed-in user. Click the initials chip in the
 header to log out.
 
+### Admin panel
+Use the **Admin** tab on the sign-in screen. A starter admin account is included:
+
+```
+username: admin
+email:    admin@shopmate.local
+password: Admin@12345
+```
+
+Change it after first login, or create your own:
+
+```powershell
+python -m backend.create_admin --username myadmin --email you@example.com
+```
+
+The panel shows all accounts and orders, store metrics, and lets you enable/disable users
+(the last active admin cannot be disabled). Only accounts with `role='admin'` can access it.
+
 ## Run
 
 ```powershell
@@ -31,7 +49,8 @@ shopping agent/
 │
 ├── backend/                 All application logic
 │   ├── config.py            Paths, models, limits, env handling
-│   ├── auth.py              Accounts, password hashing, login
+│   ├── auth.py              Accounts, password hashing, login, roles
+│   ├── create_admin.py      Admin account bootstrap CLI
 │   ├── utils.py             Validation, formatting, safe errors
 │   ├── llm.py               Lazy Groq client construction
 │   ├── database.py          SQLite connections, migrations, all SQL

@@ -172,6 +172,32 @@ def test_auth_hashing_and_account_flow(legacy_db):
         auth.create_user("bob", "bob@example.com", "short")
 
 
+def test_admin_roles_and_user_management(legacy_db):
+    user = auth.create_user("bob", "bob@example.com", "password123")
+    assert user["role"] == "user"
+    assert auth.authenticate("bob", "password123")["role"] == "user"
+
+    admin = auth.promote_to_admin("bob")
+    assert admin["role"] == "admin"
+    assert auth.authenticate("bob", "password123")["role"] == "admin"
+    assert auth.get_user(user["id"])["role"] == "admin"
+
+    with pytest.raises(ValueError):
+        auth.promote_to_admin("nobody")
+
+    listings = auth.list_users()
+    assert any(u["username"] == "bob" and u["role"] == "admin" for u in listings)
+
+    # The last active admin cannot be disabled.
+    assert auth.set_user_active(user["id"], False) is False
+
+    auth.create_user("carol", "carol@example.com", "password123", role="admin")
+    assert auth.set_user_active(user["id"], False) is True
+    assert auth.authenticate("bob", "password123") is None
+    assert auth.set_user_active(user["id"], True) is True
+    assert auth.authenticate("bob", "password123")["id"] == user["id"]
+
+
 def test_chat_history_persistence_and_isolation(legacy_db):
     cid = chat_store.create_conversation("alice")
     chat_store.append_message(cid, "user", "hello", "client-1")

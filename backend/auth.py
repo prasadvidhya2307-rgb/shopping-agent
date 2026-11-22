@@ -57,15 +57,20 @@ def _validate(username: str, email: str, password: str) -> tuple[str, str]:
     return username, email
 
 
-def create_user(username: str, email: str, password: str) -> dict[str, Any]:
+def create_user(
+    username: str, email: str, password: str, role: str = "user"
+) -> dict[str, Any]:
     """Create an account. Raises ValueError for invalid/duplicate details."""
     username, email = _validate(username, email, password)
+    if role not in ("user", "admin"):
+        raise ValueError("Invalid account role.")
     user_id = secrets.token_hex(16)
     try:
         with get_connection() as conn:
             conn.execute(
-                "INSERT INTO users (id, username, email, password_hash) VALUES (?, ?, ?, ?)",
-                (user_id, username, email, hash_password(password)),
+                "INSERT INTO users (id, username, email, password_hash, role) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, email, hash_password(password), role),
             )
     except Exception as exc:
         text = str(exc).lower()
@@ -74,7 +79,7 @@ def create_user(username: str, email: str, password: str) -> dict[str, Any]:
         if "email" in text:
             raise ValueError("That email is already registered.") from None
         raise BackendError("Could not create the account.") from exc
-    return {"id": user_id, "username": username, "email": email}
+    return {"id": user_id, "username": username, "email": email, "role": role}
 
 
 def authenticate(identifier: str, password: str) -> dict[str, Any] | None:
@@ -87,7 +92,7 @@ def authenticate(identifier: str, password: str) -> dict[str, Any] | None:
 
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT id, username, email, password_hash, is_active FROM users "
+            "SELECT id, username, email, password_hash, is_active, role FROM users "
             "WHERE LOWER(username) = ? OR LOWER(email) = ?",
             (identifier, identifier),
         ).fetchone()
@@ -101,6 +106,7 @@ def authenticate(identifier: str, password: str) -> dict[str, Any] | None:
             "id": row["id"],
             "username": row["username"],
             "email": row["email"],
+            "role": row["role"] or "user",
         }
 
     count, _ = _failed.get(identifier, (0, now))
@@ -111,7 +117,53 @@ def authenticate(identifier: str, password: str) -> dict[str, Any] | None:
 def get_user(user_id: str) -> dict[str, Any] | None:
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT id, username, email FROM users WHERE id = ? AND is_active = 1",
+            "SELECT id, username, email, role FROM users WHERE id = ? AND is_active = 1",
             (user_id,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def list_users() -> list[dict[str, Any]]:
+    """Admin-only listing of all accounts with their order counts."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT u.id, u.username, u.email, u.role, u.is_active, u.created_at, "
+            "       COUNT(o.id) AS orders, COALESCE(SUM(o.total_amount), 0) AS spent "
+            "FROM users u LEFT JOIN orders o ON o.session_id = 'user_' || u.id "
+            "GROUP BY u.id ORDER BY u.created_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def set_user_active(user_id: str, active: bool) -> bool:
+    """Admin-only account enable/disable. Never disables the last admin."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT role FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if row and row["role"] == "admin" and not active:
+            admins = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE role='admin' AND is_active=1"
+            ).fetchone()[0]
+            if admins <= 1:
+                return False
+        cursor = conn.execute(
+            "UPDATE users SET is_active = ? WHERE id = ?",
+            (1 if active else 0, user_id),
+        )
+        return cursor.rowcount > 0
+
+
+def promote_to_admin(identifier: str) -> dict[str, Any]:
+    """Promote an existing account to admin (used by the bootstrap CLI)."""
+    identifier = clean_text(identifier, 120).lower()
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, username, email, role FROM users "
+            "WHERE LOWER(username)=? OR LOWER(email)=?",
+            (identifier, identifier),
+        ).fetchone()
+        if not row:
+            raise ValueError("No account with that username or email exists.")
+        conn.execute("UPDATE users SET role='admin' WHERE id=?", (row["id"],))
+    return {"id": row["id"], "username": row["username"], "email": row["email"], "role": "admin"}
