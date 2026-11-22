@@ -308,7 +308,7 @@ def render_header() -> None:
     )
     theme_label = "Light mode" if st.session_state.theme == "dark" else "Dark mode"
     next_theme = "light" if st.session_state.theme == "dark" else "dark"
-    theme_href = f"?page={active}&theme={next_theme}"
+    theme_href = html.escape(f"?page={active}&theme={next_theme}", quote=True)
     username = (st.session_state.get("user") or {}).get("username", "?")
     user_initials = html.escape(username[:2].upper())
     admin_link = (
@@ -326,7 +326,7 @@ def render_header() -> None:
           <nav class="sm-navbar">{links}</nav>
           <div class="sm-header-actions">
             {admin_link}
-            <a class="sm-action" href="?page=assistant&new_chat=1" target="_self">New chat</a>
+            <a class="sm-action" href="?page=assistant&amp;new_chat=1" target="_self">New chat</a>
             <a class="sm-action primary" href="{theme_href}" target="_self">{theme_label}</a>
             <a class="sm-user" href="?logout=1" target="_self" title="Log out">{user_initials}</a>
           </div>
