@@ -62,6 +62,22 @@ PAGES = [
 PAGE_KEYS = {key for key, _ in PAGES} | {"admin"}
 
 
+ICON_SUN = (
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/>'
+    '<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4'
+    'M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
+)
+ICON_MOON = (
+    '<svg viewBox="0 0 24 24" aria-hidden="true">'
+    '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
+)
+ICON_SHIELD = (
+    '<svg viewBox="0 0 24 24" aria-hidden="true">'
+    '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'
+    '<path d="M9 12l2 2 4-4"/></svg>'
+)
+
+
 # ---------------------------------------------------------------------------
 # Session state + helpers
 # ---------------------------------------------------------------------------
@@ -72,6 +88,7 @@ def init_state() -> None:
         "user": None,
         "admin": False,
         "sid": None,
+        "show_register": False,
         "conversation_id": None,
         "theme": "dark",
         "auto_process": False,
@@ -253,7 +270,8 @@ def render_auth_page() -> None:
     with middle:
         st.markdown(
             '<div class="sm-auth-title">Your account</div>'
-            '<div class="sm-auth-sub">Sign in to shop, compare and track your orders.</div>',
+            '<div class="sm-auth-sub">Sign in to shop, compare and track orders. '
+            'Administrators use this same form.</div>',
             unsafe_allow_html=True,
         )
         def _sign_in(user: dict, destination: str = "home") -> None:
@@ -266,21 +284,22 @@ def render_auth_page() -> None:
             st.query_params["page"] = destination
             st.rerun()
 
-        login_tab, register_tab, admin_tab = st.tabs(
-            ["Log in", "Create account", "Admin"]
-        )
-        with login_tab:
+        if not st.session_state.get("show_register"):
             with st.form("login_form", border=False):
                 identifier = st.text_input("Username or email", key="login_id")
                 password = st.text_input("Password", type="password", key="login_pw")
-                do_login = st.form_submit_button("Log in", type="primary", use_container_width=True)
+                do_login = st.form_submit_button("Sign in", type="primary", use_container_width=True)
             if do_login:
                 user = auth.authenticate(identifier, password)
                 if user:
-                    _sign_in(user)
+                    # Admin credentials go straight to the admin panel.
+                    _sign_in(user, "admin" if user.get("role") == "admin" else "home")
                 else:
                     st.error("Invalid username/email or password.")
-        with register_tab:
+            if st.button("Create an account", key="show_register_btn", use_container_width=True):
+                st.session_state.show_register = True
+                st.rerun()
+        else:
             with st.form("register_form", border=False):
                 new_name = st.text_input("Username", key="reg_user")
                 new_email = st.text_input("Email", key="reg_email")
@@ -295,26 +314,9 @@ def render_auth_page() -> None:
                         _sign_in(auth.create_user(new_name, new_email, new_password))
                     except ValueError as exc:
                         st.error(str(exc))
-        with admin_tab:
-            st.markdown(
-                '<div class="sm-auth-sub">Administrator access. Create the admin account with '
-                '<code>python -m backend.create_admin</code> first.</div>',
-                unsafe_allow_html=True,
-            )
-            with st.form("admin_login_form", border=False):
-                admin_id = st.text_input("Admin username or email", key="admin_id")
-                admin_pw = st.text_input("Admin password", type="password", key="admin_pw")
-                do_admin = st.form_submit_button(
-                    "Enter admin panel", type="primary", use_container_width=True
-                )
-            if do_admin:
-                user = auth.authenticate(admin_id, admin_pw)
-                if user and user.get("role") == "admin":
-                    _sign_in(user, "admin")
-                elif user:
-                    st.error("This account is not an administrator.")
-                else:
-                    st.error("Invalid admin credentials.")
+            if st.button("Back to sign in", key="show_login_btn", use_container_width=True):
+                st.session_state.show_register = False
+                st.rerun()
         st.markdown(
             '<div class="sm-auth-note">Passwords are stored as salted PBKDF2 hashes. '
             'Your orders and chat history stay private to your account.</div>',
@@ -343,7 +345,6 @@ def _logout() -> None:
 
 def render_header() -> None:
     active = current_page()
-    theme_label = "Light mode" if st.session_state.theme == "dark" else "Dark mode"
     next_theme = "light" if st.session_state.theme == "dark" else "dark"
     username = (st.session_state.get("user") or {}).get("username", "?")
     initials = html.escape(username[:2].upper())
@@ -353,11 +354,16 @@ def render_header() -> None:
         f'href="{_href(key)}" target="_self">{html.escape(label)}</a>'
         for key, label in PAGES
     )
-    if st.session_state.get("admin"):
-        nav += (
-            f'<a class="sm-navlink{" active" if active == "admin" else ""}" '
-            f'href="{_href("admin")}" target="_self">Admin</a>'
-        )
+    admin_icon = (
+        f'<a class="sm-icon-link admin" href="{_href("admin")}" target="_self" '
+        f'title="Admin panel">{ICON_SHIELD}</a>'
+        if st.session_state.get("admin")
+        else ""
+    )
+    theme_icon = ICON_SUN if st.session_state.theme == "dark" else ICON_MOON
+    theme_title = (
+        "Switch to light mode" if st.session_state.theme == "dark" else "Switch to dark mode"
+    )
 
     st.markdown(
         f"""
@@ -368,8 +374,9 @@ def render_header() -> None:
           <div class="sm-search-slot"></div>
           <nav class="sm-navbar">{nav}</nav>
           <div class="sm-header-actions">
+            {admin_icon}
             <a class="sm-action" href="{_href('assistant', new_chat='1')}" target="_self">New chat</a>
-            <a class="sm-action primary" href="{_href(active, theme=next_theme)}" target="_self">{theme_label}</a>
+            <a class="sm-icon-link" href="{_href(active, theme=next_theme)}" target="_self" title="{theme_title}">{theme_icon}</a>
             <a class="sm-user" href="{_href(active, logout='1')}" target="_self" title="Log out">{initials}</a>
           </div>
         </div>

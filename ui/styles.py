@@ -240,6 +240,18 @@ input::placeholder,textarea::placeholder { color:var(--faint) !important; opacit
   font-size:.72rem; font-weight:700; text-decoration:none !important; transition:box-shadow .2s ease;
 }
 .sm-user:hover { box-shadow:var(--glow); }
+.sm-icon-link {
+  width:34px; height:34px; border-radius:10px; display:grid; place-items:center; flex-shrink:0;
+  background:var(--surface); border:1px solid var(--border); text-decoration:none !important;
+  transition:all .2s ease;
+}
+.sm-icon-link svg {
+  width:17px; height:17px; fill:none; stroke:var(--ink); stroke-width:2;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+.sm-icon-link:hover { border-color:var(--accent); box-shadow:var(--glow); transform:translateY(-2px); }
+.sm-icon-link.admin { background:var(--accent-soft); border-color:rgba(95,222,160,.28); }
+.sm-icon-link.admin svg { stroke:var(--accent); }
 
 /* ---------- Type ---------- */
 h1,h2,h3,h4 { color:var(--ink) !important; letter-spacing:-.04em; }

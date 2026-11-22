@@ -10,7 +10,8 @@ Orders and chat history are scoped to the signed-in user. Click the initials chi
 header to log out.
 
 ### Admin panel
-Use the **Admin** tab on the sign-in screen. A starter admin account is included:
+Sign in with the single form on the sign-in screen — admin credentials go straight to
+the panel (the shield icon in the header also opens it). A starter admin account is included:
 
 ```
 username: admin
