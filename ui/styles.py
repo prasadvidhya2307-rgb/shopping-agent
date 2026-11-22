@@ -437,7 +437,16 @@ button[data-testid^="stBaseButton-"]:active { transform:scale(.97) !important; }
 .sm-typing { display:inline-flex; gap:4px; align-items:center; }
 .sm-typing i { width:6px; height:6px; border-radius:50%; background:var(--accent); animation:sm-float2 1s infinite; }
 
-[data-testid="stChatInput"] { max-width:720px !important; margin-left:auto !important; margin-right:auto !important; }
+[data-testid="stChatInput"] {
+  max-width:980px !important; width:calc(100% + 60px) !important;
+  margin-left:-30px !important; margin-right:auto !important;
+}
+[data-testid="stChatInput"] > div:first-child,
+[data-testid="stChatInput"] > div:first-child:focus-within {
+  border-color:transparent !important;
+  box-shadow:none !important;
+  outline:none !important;
+}
 [data-testid="stChatInput"] textarea,
 [data-testid="stChatInput"] textarea:focus {
   border-radius:14px !important; border:1px solid var(--border) !important;
@@ -545,6 +554,7 @@ hr { border-color:var(--border) !important; }
   .sm-stats { grid-template-columns:repeat(2,1fr); }
   .sm-bento { grid-template-columns:repeat(2,1fr); }
   .sm-bubble,.sm-inline { max-width:92%; }
+  [data-testid="stChatInput"] { width:100% !important; margin-left:0 !important; }
 }
 """
 
